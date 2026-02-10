@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+// Helper function to sanitize filename
+function sanitizeFilename(filename) {
+    return filename.replace(/[/\\:*?"<>|]/g, '_').substring(0, 100);
+}
+
 export const command = {
     name: 'يوتا',
     alias: ['yta', 'صوت', 'اغنية', 'موسيقى'],
@@ -12,12 +17,14 @@ export const command = {
             await sock.sendMessage(from, { text: `🎵 جاري البحث والتحميل: *${query}*\n⏳ قد يستغرق الأمر بضع ثوان...` }, { quoted: msg });
 
             let audioData = null;
+            let apiUsed = null;
 
             // محاولة API الأولى - Vreden
             try {
                 const response = await axios.get(`https://api.vreden.my.id/api/ytmp3?query=${encodeURIComponent(query)}`);
                 if (response.data && response.data.result && response.data.result.download) {
                     audioData = response.data.result;
+                    apiUsed = 'vreden';
                 }
             } catch (err) {
                 console.log('Vreden API failed:', err.message);
@@ -32,6 +39,7 @@ export const command = {
                             download: response.data.data.url,
                             title: response.data.data.title || query
                         };
+                        apiUsed = 'agatz';
                     }
                 } catch (err) {
                     console.log('Agatz API failed:', err.message);
@@ -44,12 +52,15 @@ export const command = {
                 }, { quoted: msg });
             }
 
+            // تنظيف اسم الملف من الأحرف غير المسموحة
+            const safeFileName = sanitizeFilename(audioData.title || 'audio');
+
             // إرسال الصوت
             await sock.sendMessage(from, { 
                 audio: { url: audioData.download }, 
                 mimetype: 'audio/mpeg',
                 ptt: false,
-                fileName: `${audioData.title || 'audio'}.mp3`
+                fileName: `${safeFileName}.mp3`
             }, { quoted: msg });
 
             // إرسال رسالة تأكيد
